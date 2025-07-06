@@ -5,7 +5,7 @@ from backtesting.lib import crossover
 
 import pandas as pd
 
-class BBandsAndVolume(Strategy):
+class BBandsCrossing(Strategy):
     def init(self):
         close_series = pd.Series(self.data.Close, index=self.data.index)
 
