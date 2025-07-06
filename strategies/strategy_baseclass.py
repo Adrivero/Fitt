@@ -5,10 +5,12 @@ from abc import ABC, abstractmethod
 class Strategy(Strategy_btModule,ABC):
     @abstractmethod
     def init(self):
+        super().init()
         pass
 
     @abstractmethod
     def next(self):
+        super().next()
         pass
 
     def __repr__(self):
