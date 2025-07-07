@@ -26,3 +26,8 @@ Used to obtain the different risk metrics
 
 ## 5. Portfolio management module (To be implemented)
 Used to manage the different strategies and their impact on the whole portfolio
+
+## License
+
+This project is licensed under the **GNU General Public License v3.0**.  
+See the [LICENSE](./LICENSE) file for more details.
