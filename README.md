@@ -1,7 +1,7 @@
 
 # Fitt
 
-subtitle: Fully integrated trading tool (Fitt) aims to be the only suite necessary for developing, testing and deploying new strategies.
+Fully integrated trading tool (Fitt) aims to be the only suite necessary for developing, testing and deploying new strategies.
 
 
 
