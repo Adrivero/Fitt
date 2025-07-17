@@ -1,4 +1,4 @@
-from strategies.strategy_baseclass import Strategy
+from fitt_strategies.strategy_baseclass import Strategy
 from .._resistance_detection.volumeByPrice import resistance_byVolume
 from ta.volatility import BollingerBands
 from backtesting.lib import crossover
