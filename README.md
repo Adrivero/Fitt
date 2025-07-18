@@ -1,5 +1,6 @@
 
 # Fitt
+<img width="1024" height="1024" alt="Fitt logo square" src="https://github.com/user-attachments/assets/90327620-8d98-4719-8222-46970615ec02" />
 
 
 Fully integrated trading tool (Fitt) aims to be the only suite necessary for developing, testing and deploying new strategies.
