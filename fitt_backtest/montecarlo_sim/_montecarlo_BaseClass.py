@@ -11,10 +11,11 @@ class Montecarlo():
     '''
     def __init__(self,data):
         self.data = data
+        self.random_prices = None
         
-    def generateRandomData(self):
-        pass
-
+    def generateRandomData(self,sim_days):
+        self.random_prices = np.random.choice(self.data.values.flatten(), size=sim_days, replace=True)
+        
    
         
 
