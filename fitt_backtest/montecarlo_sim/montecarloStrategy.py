@@ -80,6 +80,76 @@ class Montecarlo_Strategy(Montecarlo):
         return simulations
     
     
+    def simulate_RandomPath(self,starting_equity = 1000, periods_to_simulate = 252, n_simulations = 500, time_step = 1,plot=0):
+        """
+        Simulates the asset price at time t using the Geometric Brownian Motion (GBM) model.
+
+        Mathematical model: Comes from solving the stochastic equation dS_t = μ * S_t * dt + std * S_t * dW_t using Ito's Lemma
+            S_t = S_{t-1} * exp((μ - 0.5 * std²) * Δt + std * sqrt(Δt) * Z)
+
+        Where:
+            - S_{t-1} : Asset price at the previous time step
+            - μ       : Average return (drift), estimated from historical log returns
+            - std       : Historical volatility of the asset
+            - Δt      : Time step size (typically 1 day)
+            - Z       : Stochastic component (Z ~ N(0, 1))
+
+        Limitations:
+            - Assumes constant μ and σ over time.
+            - Does not capture extreme market events (jumps) or time-varying volatility.
+        """
+
+        prices = self.data["Close"]
+        
+        log_returns = np.log(prices / prices.shift(1)).dropna()
+
+        # Parameters of our random walk model
+        mu = log_returns.mean()
+        std = log_returns.std()
+
+        # TODO: we have a system that proposes the next day's closing price. I need to create a dataframe that uses the same format as the one expected by the Backtest.py library. Getting the opening price is easy, might be more difficult to propose the new indexes (dates). Check documentation of the Backtest library to see the expected dataframe shape.
+
+        S0 = prices.iloc[-1] # Last known price 
+        T = periods_to_simulate
+        M = n_simulations
+
+        # Columns: Simulations Rows: One moment in time
+        simulated_paths = np.zeros((T,M))
+        simulated_paths[0] = S0
+
+        for t in range(1,T):
+            z = np.random.standard_normal(M)
+            simulated_paths[t] = simulated_paths[t-1] * np.exp((mu - 0.5 * std**2) * time_step + std * np.sqrt(time_step) * z)
+
+        # Plotting price paths
+        if plot==1:
+            for i in range(40):
+                plt.plot(simulated_paths[:,i])
+
+            plt.ylabel("Price")
+            plt.xlabel("Days into the future")
+            plt.title("Geometric Brownian Motion price paths")
+            plt.show()
+
+
+        
+        close_prices = [simulated_paths[:, t].tolist() for t in range(simulated_paths.shape[0])]
+
+
+        # for c_price in close_prices:
+        #     bt = Backtest(data=c_price,strategy=self.strategy)
+
+        
+
+
+
+
+
+
+
+
+
+
     def analysis(self,simulations:list) ->list:
         '''
         simulations(list) : List including all lists trades
