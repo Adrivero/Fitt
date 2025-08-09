@@ -3,8 +3,6 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
-from scipy import stats
-from scipy.stats import norm
 import sys
 
 # Local imports
@@ -18,23 +16,17 @@ class Montecarlo_Strategy(Montecarlo):
     '''
     Used to perform Montecarlo simulation of a trading strategy
     '''
-    def __init__(self, data,strategy,risk_free_rate:float,n_periods:int):
-        '''
-        Parameters:
-
-        Returns:
-
-        '''
+    def __init__(self, data,strategy,risk_free_rate:float,):
         super().__init__(data)
         self.strategy = strategy
         self.risk_free_rate = risk_free_rate
-        self.n_periods = n_periods
+        
 
         # Lazy initialized atributes
         self.starting_equity = None
+        self.n_periods = None
 
-
-    def simulate_RandomTrades(self,starting_equity = 1000,n_trades = None, n_simulations = 100,plot = 0)->list:
+    def simulate_RandomTrades(self,starting_equity = 10000,n_trades = None, n_simulations = 100,comissions = 0,n_periods = 252, plot= 0)->list:
         '''
         Don't change n_trades if your strategy has a time dependency (if it depends on a certain market regime)
 
@@ -42,13 +34,17 @@ class Montecarlo_Strategy(Montecarlo):
         n_trades(int): Change if you want to randomly pick more trades instead of the amount given by the initial backtest
         Returns: 
         simulations (list): List containing the possible equity curves 
+        n_periods (int) : If using Timestamped data, the amount of periods, if using trades, n_trades total_trades/number_years
+
+        Returns: 
+        simulations (list): Contains the equity curve for each simulation
         '''
 
         # Initializing lazy atributes
         self.starting_equity = starting_equity
-        
+        self.n_periods = n_periods
 
-        bt = Backtest(self.data,self.strategy)
+        bt = Backtest(self.data,self.strategy,commission=comissions)
         stats = bt.run() # <class 'backtesting._stats._Stats'>
         
         trade_returns = stats['_trades']['ReturnPct']
@@ -79,8 +75,8 @@ class Montecarlo_Strategy(Montecarlo):
         
         return simulations
     
-    
-    def simulate_RandomPath(self,starting_equity = 1000, periods_to_simulate = 252, n_simulations = 500, time_step = 1,plot=0):
+    # Just simualtes prices! Only valid for daily strategies
+    def simulate_RandomPath(self,starting_equity = 10000, periods_to_simulate = 252, n_simulations = 100, time_step = 1, comissions = 0, plot_random_paths=False, plot_equity_curves = False) -> list:
         """
         Simulates the asset price at time t using the Geometric Brownian Motion (GBM) model.
 
@@ -99,7 +95,14 @@ class Montecarlo_Strategy(Montecarlo):
             - Does not capture extreme market events (jumps) or time-varying volatility.
         """
 
+        print(f"Montecarlo_Strategy: (Random walk data) Starting to simulate n_simulations: {n_simulations} ")
+
+        # Initializing lazy atributes
+        self.starting_equity = starting_equity
+
+
         prices = self.data["Close"]
+        last_date = self.data.index[-1]
         
         log_returns = np.log(prices / prices.shift(1)).dropna()
 
@@ -107,24 +110,24 @@ class Montecarlo_Strategy(Montecarlo):
         mu = log_returns.mean()
         std = log_returns.std()
 
-        # TODO: we have a system that proposes the next day's closing price. I need to create a dataframe that uses the same format as the one expected by the Backtest.py library. Getting the opening price is easy, might be more difficult to propose the new indexes (dates). Check documentation of the Backtest library to see the expected dataframe shape.
-
         S0 = prices.iloc[-1] # Last known price 
         T = periods_to_simulate
         M = n_simulations
 
-        # Columns: Simulations Rows: One moment in time
+        # Columns: Simulations ; Rows: One moment in time
         simulated_paths = np.zeros((T,M))
         simulated_paths[0] = S0
+        
 
         for t in range(1,T):
             z = np.random.standard_normal(M)
             simulated_paths[t] = simulated_paths[t-1] * np.exp((mu - 0.5 * std**2) * time_step + std * np.sqrt(time_step) * z)
 
         # Plotting price paths
-        if plot==1:
-            for i in range(40):
+        if plot_random_paths==True:
+            for i in range(n_simulations):
                 plt.plot(simulated_paths[:,i])
+            
 
             plt.ylabel("Price")
             plt.xlabel("Days into the future")
@@ -132,89 +135,41 @@ class Montecarlo_Strategy(Montecarlo):
             plt.show()
 
 
-        
-        close_prices = [simulated_paths[:, t].tolist() for t in range(simulated_paths.shape[0])]
+        close_prices = [simulated_paths[:, t].tolist() for t in range(simulated_paths.shape[1])]
+        stats = []
 
+        # Adding new dateTimeIndexes starting from the last data dat
+        freq = pd.infer_freq(self.data.index) # Get frequency of the input data
+        future_dates = pd.date_range(start=last_date + pd.Timedelta(days=1),
+                                    periods=periods_to_simulate,
+                                    freq=freq)
 
-        # for c_price in close_prices:
-        #     bt = Backtest(data=c_price,strategy=self.strategy)
+        # The Backtest will actualyl start 2 days after the last given date due to the elimination of NaN values
+        for i in range(n_simulations): 
+            #Iterate across all different price curves
+            data_df = pd.DataFrame()
+            data_df["Close"] = close_prices[i] 
+            data_df["Open"] = data_df["Close"].shift(1)
+            data_df = data_df[["Open","Close"]]
+            data_df.index = future_dates
+            data_df.dropna(inplace=True)
 
-        
-
-
-
-
-
-
-
-
-
-
-    def analysis(self,simulations:list) ->list:
-        '''
-        simulations(list) : List including all lists trades
-        '''
-
-        sharpes = []
-        max_drawdowns = []
-        profit_factors = []
-        statitsitcs = []
-
-        for sim in simulations: 
-            st = Stats(sim,self.risk_free_rate,self.n_periods)
-            st_df = st.compute_Stats()
+            # Adding high and low columns
+            data_df["High"] = data_df["Close"]
+            data_df["Low"] = data_df["Open"]
             
-            sharpe = st_df.loc["Sharpe ratio", "Value"]
-            max_dr = st_df.loc["Max. Drawdown", "Value"]
-            profit_factor = st_df.loc["Profit factor", "Value"]
+            bt = Backtest(data = data_df, strategy=self.strategy, cash=starting_equity,commission=comissions)
+            bt_results = bt.run()
+            stats.append(bt_results)
+            print(f"> Simulation number {i} ended - Sharpe: {bt_results["Sharpe Ratio"]}")
+            
+            if plot_equity_curves == True:
+                bt.plotEquityCurve()
 
-            sharpes.append(sharpe)
-            max_drawdowns.append(max_dr)
-            profit_factors.append(profit_factor)
+        if plot_equity_curves: plt.show()
 
-            statitsitcs.append(st)
+        return stats
+            
 
-        # Eliminate NaNs and Infinities
-        sharpes = [x for x in sharpes if not (np.isnan(x) or np.isinf(x))]
-        max_drawdowns = [x for x in max_drawdowns if not (np.isnan(x) or np.isinf(x))]
-        profit_factors = [x for x in profit_factors if not (np.isnan(x) or np.isinf(x))]
-
-    
-        fig, axs = plt.subplots(1, 2, figsize=(10, 4))
-
-        
-        axs[0].hist(sharpes,bins=20,density = True)
-        axs[0].set_title("Sharpes")
-        axs[0].set_ylabel("Frequency")
       
-
-        
-        mu = np.mean(sharpes)
-        sigma = np.std(sharpes)
-
-        x = np.linspace(min(sharpes), max(sharpes), 1000)
-        y = norm.pdf(x, loc=mu, scale=sigma)
-
-        axs[0].plot(x, y, 'r-', linewidth=2, label=f'Normal fit\nμ={mu:.2f}, σ={sigma:.2f}')
-        axs[0].legend()
-
-        axs[1].hist(max_drawdowns,bins=20)
-        axs[1].set_title("Max_drawdowns")
-        axs[1].set_ylabel("Frequency")
-        plt.tight_layout()
-        plt.show()
-
     
-        return_dict = {
-            "Worst sharpe" : min(sharpes),
-            "Mean sharpe" : np.mean(sharpes),
-            "Best sharpe" : max(sharpes),
-            "Worst Max Drawdown" : min(max_drawdowns),
-            "Mean Max Drawdown" : np.mean(max_drawdowns),
-            "Best Max Drawdown" : max(max_drawdowns),
-            "Worst Profit factor" : min(profit_factors), 
-            "Mean Profit factor" : np.mean(profit_factors),
-            "Best Profit factor" : max(profit_factors)
-        }
-        return_df = pd.Series(return_dict,name="Value").to_frame()
-        print(return_df)
