@@ -88,7 +88,7 @@ _trades                       Size  EntryB...
 
 ## 2-.1 Montecarlo simulation
 >[!NOTE]
-> It uses multithreading!
+> It uses multiprocessing!
 
 - Random historical data (Random-walk): A Geometric Brownian Motion creates various price paths. Then the trading strategy will be tested in those "random" price paths and and the main mean metrics will be computed.
 - Random Trade sampling with bootstraping. From a collection of trades, choose trades randomly with replacement.
