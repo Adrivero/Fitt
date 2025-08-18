@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from typing import List
 
 from scipy.stats import norm
+from scipy.stats import skew, kurtosis
 
 from backtesting._stats import _Stats 
 # Local imports
@@ -17,24 +18,6 @@ class Montecarlo():
         self.data = data
         self.random_prices = None
         
-
-      
-
-    #TODO Implement those analysis for all equity curves at the same time:
-    # Median & mean final return – central tendency.
-
-    # Worst-case and best-case outcomes – tail risks & upside.
-
-    # Percentiles – e.g., 5th percentile tells you "there’s a 95% chance of doing better than this."
-
-    # Probability of loss – how often the strategy ends negative.
-
-    # Distribution of max drawdowns – what’s the likely pain you’ll endure.
-
-    # Risk-of-ruin – probability of the portfolio going below a critical threshold (e.g., -50% or zero).
-
-    # Skewness & kurtosis – are results asymmetric or prone to extreme outliers?
-
 
     def calculateStatsFromEquityCurves(self,eq_curves: list)->pd.DataFrame:
         sharpes = []
@@ -100,7 +83,8 @@ class Montecarlo():
         print(return_df)
         return return_df
 
-    def analysis(self,equity_curves:List[list] = None, stats: List[_Stats]= None  ) ->list:
+    def analysis(self,equity_curves:List [list] = None, stats: List[_Stats]= None  ) ->list:
+
         if equity_curves is None and stats is None:
             raise ValueError("(Equity_curves) or (_Stats list) missing")
         if equity_curves and stats:
@@ -111,14 +95,102 @@ class Montecarlo():
             self.calculateStatsFromEquityCurves(equity_curves)
             
         if stats:
-            # TODO in future, transform this into the same function as above so you get the same results for both types of montecarlo
+            # TODO in the future, transform this into the same function as above so you get the same results for both types of montecarlo
             sharpes =[]
             returns_pct = []
-
+            ann_returns_pct = []
+            max_dds = []
+            avg_dds = []
+            avg_bnh_returns = []
+            # Getting all the data for all the simulations
             for s in stats:
-                s["Return [%]"]
-                s["Return (Ann.) [%]"]
-                s["Sharpe Ratio"]
-                s["Max. Drawdown [%]"]
-                s["Avg. Drawdown [%]"]
+                returns_pct.append(s["Return [%]"])
+                ann_returns_pct.append(s["Return (Ann.) [%]"])
+                sharpes.append(s["Sharpe Ratio"])
+                max_dds.append(s["Max. Drawdown [%]"])
+                avg_dds.append(s["Avg. Drawdown [%]"])
+                avg_bnh_returns.append(s["Buy & Hold Return [%]"])
 
+
+
+            # Loss and Ruin probability calculation
+            loss_prob = len([r for r in returns_pct if r < 0]) / len(returns_pct)
+
+            ruin_threshold = -0.3 # Loss percentage
+            ruin_prob = len([r for r in returns_pct if r <= ruin_threshold * 100]) / len(returns_pct)
+
+            # kurtosis and skewness calculation
+            kurt = kurtosis(returns_pct, fisher=False)
+            skewness = skew(returns_pct)
+
+            # The spaces in between have to be of different length as dictionaries have no repeated elements
+            return_dict = {
+            "Probability of loss [%]": round(loss_prob * 100, 3),
+            f"Probability of Ruin [%] (Portfolio losing >{-ruin_threshold * 100}%)": round(ruin_prob * 100, 3),
+            " ": " ",
+            "Avg Buy & Hold returns [%]": round(np.mean(avg_bnh_returns), 3),
+            "Return Worst [%]": round(min(returns_pct), 3),
+            "Return Mean [%]": round(np.mean(returns_pct), 3),
+            "Return Best [%]": round(max(returns_pct), 3),
+            "Return P5 [%]": round(np.percentile(returns_pct, 5), 3),
+            "Return P50 [%]": round(np.percentile(returns_pct, 50), 3),
+            "Return P95 [%]": round(np.percentile(returns_pct, 95), 3),
+            "Ann. Return Mean [%]": round(np.mean(ann_returns_pct), 3),
+            "Skewness (Returns)": round(skewness, 3),
+            "Pearson Gross Kurtosis (Includes normal baseline) (Returns)": round(kurt, 3),
+            "  ": " ",
+
+            "Sharpe Worst": round(min(sharpes), 3),
+            "Sharpe Mean": round(np.mean(sharpes), 3),
+            "Sharpe Best": round(max(sharpes), 3),
+            "Sharpe P5": round(np.percentile(sharpes, 5), 3),
+            "Sharpe P50": round(np.percentile(sharpes, 50), 3),
+            "Sharpe P95": round(np.percentile(sharpes, 95), 3),
+            "   ": "   ",
+
+            "MaxDD Worst [%]": round(min(max_dds), 3),
+            "MaxDD Mean [%]": round(np.mean(max_dds), 3),
+            "MaxDD Best [%]": round(max(max_dds), 3),
+            "MaxDD P5 [%]": round(np.percentile(max_dds, 5), 3),
+            "MaxDD P50 [%]": round(np.percentile(max_dds, 50), 3),
+            "MaxDD P95 [%]": round(np.percentile(max_dds, 95), 3),
+            "Avg. Drawdown Mean [%]": round(np.mean(avg_dds), 3)
+            }
+
+            df = pd.Series(return_dict, name="Simulation results").to_frame()
+            print("")
+            print(df)
+
+            print("")
+
+            if skewness>0:
+                print("Skewness >0, 'more' positive returns ")
+            elif skewness<0:
+                print("Skewness <0, 'more' negative returns ")
+            else: print("Skewnes == 0, symetric")
+
+            if kurt > 3 :
+                print("Kurtosis >3, Fat Tails, more probability of extreme events")
+            
+
+
+        fig, axs = plt.subplots(1, 2, figsize=(12, 5))
+
+        # Returns distribution
+        axs[0].hist(returns_pct, bins=20, color='blue', alpha=0.7)
+        axs[0].set_xlabel("Returns [%]")
+        axs[0].set_ylabel("Frequency")
+        axs[0].set_title("Returns [%] Distribution")
+        axs[0].grid(True)
+
+        # Max Drawdowns distribution
+        axs[1].hist(max_dds, bins=20, color='orange', alpha=0.7)
+        axs[1].set_xlabel("Drawdown [%]")
+        axs[1].set_ylabel("Frequency")
+        axs[1].set_title("Max Drawdowns [%] Distribution")
+        axs[1].grid(True)
+
+        plt.tight_layout()
+        plt.show()
+        
+        return df

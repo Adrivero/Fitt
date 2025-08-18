@@ -76,7 +76,7 @@ class Montecarlo_Strategy(Montecarlo):
         return simulations
     
     # Just simualtes prices! Only valid for daily strategies
-    def simulate_RandomPath(self,starting_equity = 10000, periods_to_simulate = 252, n_simulations = 100, time_step = 1, comissions = 0, plot_random_paths=False, plot_equity_curves = False) -> list:
+    def simulate_RandomWalk(self,starting_equity = 10000, periods_to_simulate = 252, n_simulations = 100, time_step = 1, comissions = 0, plot_random_paths=False, plot_equity_curves = False) -> list:
         """
         Simulates the asset price at time t using the Geometric Brownian Motion (GBM) model.
 
@@ -165,8 +165,7 @@ class Montecarlo_Strategy(Montecarlo):
             
             if plot_equity_curves == True:
                 bt.plotEquityCurve()
-
-        if plot_equity_curves: plt.show()
+                plt.show()
 
         return stats
             
