@@ -31,9 +31,7 @@ Used to test different already implemented strategies or to test new ones.
 #### Quick example
 ```python
 import yfinance as yf
-
 from fitt_strategies.simpleCrosses.bollingerBandsCrossing import BBandsCrossing
-
 from fitt_backtest.engine import Backtest
 
 data = yf.download("AAPL",start="2020-01-01")
