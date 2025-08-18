@@ -1,5 +1,6 @@
+import matplotlib.pyplot as plt
+
 from backtesting import Backtest as Backtets_btModule
-import warnings
 
 
 class Backtest(Backtets_btModule):
@@ -22,3 +23,15 @@ class Backtest(Backtets_btModule):
         s = self.run()
         print(s)
         return s
+
+    # Call plt.show() afterwards
+    def plotEquityCurve(self):
+        if self._results is not None:
+            plt.plot(self._data.index,self._results["_equity_curve"]
+            ["Equity"],alpha=0.65)
+            plt.xlabel("Date")
+            plt.ylabel("Equity")
+            plt.title("Equity curve")
+        else: 
+            raise ValueError("Need to do bt.run() to obtain the equity curves")
+        

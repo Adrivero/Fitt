@@ -15,11 +15,13 @@ class BBandsCrossing(Strategy):
         # Use custom variable names as requested
         self.higher_band = self.I(bb.bollinger_hband)
         self.middle_band = self.I(bb.bollinger_mavg)
+        self.lower_band = self.I(bb.bollinger_lband)
 
     def next(self):
         price = self.data.Close[-1]
         upper = self.higher_band[-1]
         middle = self.middle_band[-1]
+        lower = self.lower_band[-1]
 
         # Entry condition: breakout above upper band
         if not self.position and price > upper:
@@ -27,4 +29,11 @@ class BBandsCrossing(Strategy):
 
         # Exit condition: price falls back below the middle band
         elif self.position and price < middle:
+            self.position.close()
+
+        # Short strategy
+        if not self.position and price < lower:
+            self.sell()
+        
+        elif self.position and price >= middle:
             self.position.close()
