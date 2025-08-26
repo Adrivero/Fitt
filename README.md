@@ -31,9 +31,7 @@ Used to test different already implemented strategies or to test new ones.
 #### Quick example
 ```python
 import yfinance as yf
-
 from fitt_strategies.simpleCrosses.bollingerBandsCrossing import BBandsCrossing
-
 from fitt_backtest.engine import Backtest
 
 data = yf.download("AAPL",start="2020-01-01")
@@ -89,6 +87,9 @@ _trades                       Size  EntryB...
 
 
 ## 2-.1 Montecarlo simulation
+>[!NOTE]
+> It uses multiprocessing!
+
 - Random historical data (Random-walk): A Geometric Brownian Motion creates various price paths. Then the trading strategy will be tested in those "random" price paths and and the main mean metrics will be computed.
 - Random Trade sampling with bootstraping. From a collection of trades, choose trades randomly with replacement.
   </br>
