@@ -3,7 +3,6 @@ import yfinance as yf
 import matplotlib.pyplot as plt
 import numpy as np
 
-from backtesting.test import GOOG
 
 
 def resistance_byVolume(data,num_bins,n):

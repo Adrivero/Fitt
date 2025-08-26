@@ -1,16 +1,17 @@
 from fitt_strategies.strategy_baseclass import Strategy
-from fitt_strategies.utils._resistance_detection import volumeByPrice
 from ta.volatility import BollingerBands
 from backtesting.lib import crossover
 
 import pandas as pd
 
 class BBandsCrossing(Strategy):
+    window = 20
     def init(self):
         close_series = pd.Series(self.data.Close, index=self.data.index)
 
+
         # Calculate Bollinger Bands using ta
-        bb = BollingerBands(close=close_series, window=20, window_dev=2)
+        bb = BollingerBands(close=close_series, window=self.window, window_dev=2)
 
         # Use custom variable names as requested
         self.higher_band = self.I(bb.bollinger_hband)
