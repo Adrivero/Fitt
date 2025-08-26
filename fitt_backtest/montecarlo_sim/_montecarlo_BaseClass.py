@@ -16,7 +16,6 @@ class Montecarlo():
     '''
     def __init__(self,data):
         self.data = data
-        self.random_prices = None
         
 
     def calculateStatsFromEquityCurves(self,eq_curves: list)->pd.DataFrame:
@@ -113,8 +112,8 @@ class Montecarlo():
 
 
 
-            # Loss and Ruin probability calculation
-            loss_prob = len([r for r in returns_pct if r < 0]) / len(returns_pct)
+            # Win and Ruin probability calculation
+            win_prob = len([r for r in returns_pct if r > 0]) / len(returns_pct)
 
             ruin_threshold = -0.3 # Loss percentage
             ruin_prob = len([r for r in returns_pct if r <= ruin_threshold * 100]) / len(returns_pct)
@@ -125,7 +124,7 @@ class Montecarlo():
 
             # The spaces in between have to be of different length as dictionaries have no repeated elements
             return_dict = {
-            "Probability of loss [%]": round(loss_prob * 100, 3),
+            "Win Rate [%] (Probability of positive returns)": round(win_prob * 100, 3),
             f"Probability of Ruin [%] (Portfolio losing >{-ruin_threshold * 100}%)": round(ruin_prob * 100, 3),
             " ": " ",
             "Avg Buy & Hold returns [%]": round(np.mean(avg_bnh_returns), 3),
