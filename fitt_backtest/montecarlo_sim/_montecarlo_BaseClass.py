@@ -82,7 +82,7 @@ class Montecarlo():
         print(return_df)
         return return_df
 
-    def analysis(self,equity_curves:List [list] = None, stats: List[_Stats]= None  ) ->list:
+    def analysis(self,equity_curves:List [list] = None, stats: List[_Stats]= None, own_comments: bool = True ) ->list:
 
         if equity_curves is None and stats is None:
             raise ValueError("(Equity_curves) or (_Stats list) missing")
@@ -137,6 +137,7 @@ class Montecarlo():
             "Ann. Return Mean [%]": round(np.mean(ann_returns_pct), 3),
             "Skewness (Returns)": round(skewness, 3),
             "Pearson Gross Kurtosis (Includes normal baseline) (Returns)": round(kurt, 3),
+            "Returns(Ann)/drawdown" : round(np.mean(ann_returns_pct)/np.mean(max_dds)),
             "  ": " ",
 
             "Sharpe Worst": round(min(sharpes), 3),
@@ -162,15 +163,24 @@ class Montecarlo():
 
             print("")
 
-            if skewness>0:
-                print("Skewness >0, 'more' positive returns ")
-            elif skewness<0:
-                print("Skewness <0, 'more' negative returns ")
-            else: print("Skewnes == 0, symetric")
+            if own_comments:
+                print("------------------ Automatic comments on the strategy performance ------------------")
+                if skewness>0:
+                    print("Skewness >0, 'more' positive returns ")
+                elif skewness<0:
+                    print("Skewness <0, 'more' negative returns ")
+                else: print("Skewnes == 0, symetric")
 
-            if kurt > 3 :
-                print("Kurtosis >3, Fat Tails, more probability of extreme events")
-            
+                if kurt > 3 :
+                    print("Kurtosis >3, Fat Tails, more probability of extreme events")
+                
+                ret_dd_ratio = round(np.mean(ann_returns_pct)/np.mean(max_dds))
+                if ret_dd_ratio<2:
+                    print("WARNING-Returns(Ann)/Drawdown is <2")
+
+                if -ruin_threshold * 100 > 10:
+                    print("WARNING-Risk of ruin higher than 10%")
+
 
 
         fig, axs = plt.subplots(1, 2, figsize=(12, 5))
