@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import sys
-from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures import ProcessPoolExecutor,as_completed
 from typing import Union, List
 import tqdm
 from typing import Type
@@ -15,6 +15,29 @@ from fitt_backtest.engine import Backtest
 from utils.console_utils import cleanConsole
 from fitt_metrics.statistics import Stats
 from fitt_strategies.strategy_baseclass import Strategy
+
+# Needs to be in the global scope for ProcessPoolExecutor to work (i.e to be pickable)
+def _run_permutation(args):
+    """
+    Worker function for one permutation.
+    Runs Backtest.optimize() on permuted data.
+    """
+    self, starting_index, opt_kwargs, metric, best_metric = args
+
+    permuted_training_data = self._get_permutation(self.data, start_index=starting_index)
+
+    bt = Backtest(
+        data=permuted_training_data,   # <-- IMPORTANT: permuted data!
+        strategy=self.strategy,
+        cash=self.starting_equity,
+        spread=self.spread,
+        commission=self.comissions,
+        margin=self.margin
+    )
+
+    stats = bt.optimize(**opt_kwargs)
+
+    return stats[metric] >= best_metric, stats[metric]
 
 # Needs to be in the global scope for ProcessPoolExecutor to work (i.e to be pickable)
 def _backtestEquity_curve(equity_curve, future_dates, strategy, starting_equity, commissions,margin,spread):
@@ -35,7 +58,7 @@ class Montecarlo_Strategy(Montecarlo):
     '''
     Used to perform Montecarlo simulation of a trading strategy
     '''
-    def __init__(self, data: Type[pd.DataFrame],strategy:Type[Strategy],risk_free_rate:float = 0.02,starting_equity = 1000, comissions = 0,spread = 0,margin = 0):
+    def __init__(self, data: Type[pd.DataFrame],strategy:Type[Strategy],risk_free_rate:float = 0.02,starting_equity = 1000, comissions = 0,spread = 0,margin = 1):
         super().__init__(data)
         self.strategy = strategy
 
@@ -295,7 +318,7 @@ class Montecarlo_Strategy(Montecarlo):
         else:
             return perm_ohlc[0]
 
-    
+    # TODO: Set for elimination...
     @staticmethod
     def sanitize_opt_kwargs(**kwargs):
         """
@@ -314,15 +337,9 @@ class Montecarlo_Strategy(Montecarlo):
         return kwargs
 
     def in_sample_mcpt(self,n_permutations = 1000, metric = "Profit Factor",starting_index = 0, **opt_kwargs):
-
-        initial_bt = Backtest(
-            self.data,
-            self.strategy,
-            cash=self.starting_equity,
-            margin=self.margin,
-            spread=self.spread,
-            commission=self.comissions
-        )
+        '''
+        **opt_kwargs: Arguments given to Backtest.optimize() function
+        '''
 
        # In-Sample historical (Supposedly better metric)
         best_bt = Backtest(data=self.data,
@@ -333,43 +350,38 @@ class Montecarlo_Strategy(Montecarlo):
                            margin=self.margin
                            )
 
-        opt_kwargs = self.sanitize_opt_kwargs(**opt_kwargs)
+        # opt_kwargs = self.sanitize_opt_kwargs(**opt_kwargs)
         best_stats = best_bt.optimize(**opt_kwargs)
 
         best_metric = best_stats[metric] # Assumed best metric obtained from historical data
 
         # Backtesting permutated data
-        
-        perm_better_count = 1 # Number of times the optimizated strategy for a specifi permutation behaves better than insample data
+        tasks = [(self, starting_index, opt_kwargs, metric, best_metric)] * n_permutations
+
+        perm_better_counter = 0
         permutated_metrics = []
+
+        # Use ProcessPoolExecutor for true parallelism
+        with ProcessPoolExecutor() as executor:
+            futures = [executor.submit(_run_permutation, task) for task in tasks]
+
+            for future in as_completed(futures):
+                is_better, metric_value = future.result()
+                if is_better:
+                    perm_better_counter += 1
+                permutated_metrics.append(metric_value)
+
+        cleanConsole()
         
-        print("Starting in-sample MCPT")
-        for perm_i in tqdm(range(1,n_permutations)):
-            training_data = self._get_permutation(self.data,start_index=starting_index)
-
-            bt = Backtest(data=self.data,
-                           strategy=self.strategy,
-                           cash=self.starting_equity,
-                           spread=self.spread,
-                           commission=self.comissions,
-                           margin=self.margin
-                           )
-            
-            stats = bt.optimize(**opt_kwargs)
-            
-            if stats[metric]>= best_metric:
-                perm_better_counter+=1
-
-            permutated_metrics.append(stats[metric])
 
         insample_mcpt_pval = perm_better_counter/n_permutations
-        print(f"In-Sample MCPT P_Value: {insample_mcpt_pval}")
+        print(f"In-Sample MCPT P_Value (Probability of getting a better performance on a permutated dataset): {insample_mcpt_pval}")
 
         plt.style.use("dark_background")
         pd.Series(permutated_metrics).hist(label="Permutations")
         plt.axvline(best_metric,color="Red",label="In sample PF")
         plt.xlabel(metric)
-        plt.title(f"In-Sample MCPT. P-value {insample_mcpt_pval}")
+        plt.title(f"In-Sample MCPT. P-value: {round(insample_mcpt_pval,3)}")
         plt.legend()
         plt.show()
 
